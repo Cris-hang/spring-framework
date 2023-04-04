@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 
-import javax.servlet.http.HttpServletRequest;
-
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -53,6 +52,7 @@ import org.springframework.web.context.request.async.DeferredResult.DeferredResu
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 3.2
  * @see org.springframework.web.context.request.AsyncWebRequestInterceptor
  * @see org.springframework.web.servlet.AsyncHandlerInterceptor
@@ -77,12 +77,15 @@ public final class WebAsyncManager {
 	private static Boolean taskExecutorWarning = true;
 
 
+	@Nullable
 	private AsyncWebRequest asyncWebRequest;
 
 	private AsyncTaskExecutor taskExecutor = DEFAULT_TASK_EXECUTOR;
 
+	@Nullable
 	private volatile Object concurrentResult = RESULT_NONE;
 
+	@Nullable
 	private volatile Object[] concurrentResultContext;
 
 	/*
@@ -99,7 +102,7 @@ public final class WebAsyncManager {
 
 	/**
 	 * Package-private constructor.
-	 * @see WebAsyncUtils#getAsyncManager(javax.servlet.ServletRequest)
+	 * @see WebAsyncUtils#getAsyncManager(jakarta.servlet.ServletRequest)
 	 * @see WebAsyncUtils#getAsyncManager(org.springframework.web.context.request.WebRequest)
 	 */
 	WebAsyncManager() {
@@ -165,6 +168,7 @@ public final class WebAsyncManager {
 	 * concurrent handling.
 	 * @see #clearConcurrentResult()
 	 */
+	@Nullable
 	public Object[] getConcurrentResultContext() {
 		return this.concurrentResultContext;
 	}
@@ -196,7 +200,7 @@ public final class WebAsyncManager {
 	 */
 	public void registerCallableInterceptor(Object key, CallableProcessingInterceptor interceptor) {
 		Assert.notNull(key, "Key is required");
-		Assert.notNull(interceptor, "CallableProcessingInterceptor  is required");
+		Assert.notNull(interceptor, "CallableProcessingInterceptor is required");
 		this.callableInterceptors.put(key, interceptor);
 	}
 
@@ -378,7 +382,7 @@ public final class WebAsyncManager {
 		return request != null ? request.getRequestURI() : "servlet container";
 	}
 
-	private void setConcurrentResultAndDispatch(Object result) {
+	private void setConcurrentResultAndDispatch(@Nullable Object result) {
 		synchronized (WebAsyncManager.this) {
 			if (this.concurrentResult != RESULT_NONE) {
 				return;

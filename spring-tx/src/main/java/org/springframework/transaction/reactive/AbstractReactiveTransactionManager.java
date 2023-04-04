@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -433,7 +433,7 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 
 		AtomicBoolean beforeCompletionInvoked = new AtomicBoolean();
 
-		Mono<Object> commit = prepareForCommit(synchronizationManager, status)
+		Mono<Void> commit = prepareForCommit(synchronizationManager, status)
 				.then(triggerBeforeCommit(synchronizationManager, status))
 				.then(triggerBeforeCompletion(synchronizationManager, status))
 				.then(Mono.defer(() -> {
@@ -445,11 +445,12 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 						return doCommit(synchronizationManager, status);
 					}
 					return Mono.empty();
-				})).then(Mono.empty().onErrorResume(ex -> {
-					Mono<Object> propagateException = Mono.error(ex);
+				})) //
+				.onErrorResume(ex -> {
+					Mono<Void> propagateException = Mono.error(ex);
 					// Store result in a local variable in order to appease the
 					// Eclipse compiler with regard to inferred generics.
-					Mono<Object> result = propagateException;
+					Mono<Void> result = propagateException;
 					if (ErrorPredicates.UNEXPECTED_ROLLBACK.test(ex)) {
 						result = triggerAfterCompletion(synchronizationManager, status, TransactionSynchronization.STATUS_ROLLED_BACK)
 								.then(propagateException);
@@ -471,7 +472,8 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 					}
 
 					return result;
-				})).then(Mono.defer(() -> triggerAfterCommit(synchronizationManager, status).onErrorResume(ex ->
+				})
+				.then(Mono.defer(() -> triggerAfterCommit(synchronizationManager, status).onErrorResume(ex ->
 						triggerAfterCompletion(synchronizationManager, status, TransactionSynchronization.STATUS_COMMITTED).then(Mono.error(ex)))
 						.then(triggerAfterCompletion(synchronizationManager, status, TransactionSynchronization.STATUS_COMMITTED))));
 
@@ -579,9 +581,6 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 			GenericReactiveTransaction status) {
 
 		if (status.isNewSynchronization()) {
-			if (status.isDebug()) {
-				logger.trace("Triggering beforeCommit synchronization");
-			}
 			return TransactionSynchronizationUtils.triggerBeforeCommit(
 					synchronizationManager.getSynchronizations(), status.isReadOnly());
 		}
@@ -597,9 +596,6 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 			GenericReactiveTransaction status) {
 
 		if (status.isNewSynchronization()) {
-			if (status.isDebug()) {
-				logger.trace("Triggering beforeCompletion synchronization");
-			}
 			return TransactionSynchronizationUtils.triggerBeforeCompletion(synchronizationManager.getSynchronizations());
 		}
 		return Mono.empty();
@@ -614,9 +610,6 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 			GenericReactiveTransaction status) {
 
 		if (status.isNewSynchronization()) {
-			if (status.isDebug()) {
-				logger.trace("Triggering afterCommit synchronization");
-			}
 			return TransactionSynchronizationUtils.invokeAfterCommit(synchronizationManager.getSynchronizations());
 		}
 		return Mono.empty();
@@ -635,16 +628,13 @@ public abstract class AbstractReactiveTransactionManager implements ReactiveTran
 			List<TransactionSynchronization> synchronizations = synchronizationManager.getSynchronizations();
 			synchronizationManager.clearSynchronization();
 			if (!status.hasTransaction() || status.isNewTransaction()) {
-				if (status.isDebug()) {
-					logger.trace("Triggering afterCompletion synchronization");
-				}
 				// No transaction or new transaction for the current scope ->
 				// invoke the afterCompletion callbacks immediately
 				return invokeAfterCompletion(synchronizationManager, synchronizations, completionStatus);
 			}
 			else if (!synchronizations.isEmpty()) {
 				// Existing transaction that we participate in, controlled outside
-				// of the scope of this Spring transaction manager -> try to register
+				// the scope of this Spring transaction manager -> try to register
 				// an afterCompletion callback with the existing (JTA) transaction.
 				return registerAfterCompletionWithExistingTransaction(
 						synchronizationManager, status.getTransaction(), synchronizations);

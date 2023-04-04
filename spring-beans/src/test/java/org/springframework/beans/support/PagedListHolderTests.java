@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.testfixture.beans.TestBean;
+import org.springframework.lang.Nullable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -194,15 +195,23 @@ public class PagedListHolderTests {
 		}
 
 		@Override
-		public boolean equals(Object o) {
-			if (this == o) return true;
-			if (!(o instanceof MockFilter)) return false;
+		public boolean equals(@Nullable Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (!(o instanceof MockFilter mockFilter)) {
+				return false;
+			}
 
-			final MockFilter mockFilter = (MockFilter) o;
-
-			if (!age.equals(mockFilter.age)) return false;
-			if (!extendedInfo.equals(mockFilter.extendedInfo)) return false;
-			if (!name.equals(mockFilter.name)) return false;
+			if (!age.equals(mockFilter.age)) {
+				return false;
+			}
+			if (!extendedInfo.equals(mockFilter.extendedInfo)) {
+				return false;
+			}
+			if (!name.equals(mockFilter.name)) {
+				return false;
+			}
 
 			return true;
 		}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.springframework.web.servlet.mvc.method;
 import java.util.List;
 import java.util.Set;
 
-import javax.servlet.ServletRequest;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.lang.Nullable;
@@ -47,7 +47,7 @@ import org.springframework.web.util.pattern.PathPattern;
 import org.springframework.web.util.pattern.PathPatternParser;
 
 /**
- * Request mapping information. A composite for the the following conditions:
+ * Request mapping information. A composite for the following conditions:
  * <ol>
  * <li>{@link PathPatternsRequestCondition} with parsed {@code PathPatterns} or
  * {@link PatternsRequestCondition} with String patterns via {@code PathMatcher}
@@ -240,9 +240,8 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 	 */
 	public Set<String> getDirectPaths() {
 		RequestCondition<?> condition = getActivePatternsCondition();
-		return (condition instanceof PathPatternsRequestCondition ?
-				((PathPatternsRequestCondition) condition).getDirectPaths() :
-				((PatternsRequestCondition) condition).getDirectPaths());
+		return (condition instanceof PathPatternsRequestCondition pprc ?
+				pprc.getDirectPaths() : ((PatternsRequestCondition) condition).getDirectPaths());
 	}
 
 	/**
@@ -252,9 +251,8 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 	 */
 	public Set<String> getPatternValues() {
 		RequestCondition<?> condition = getActivePatternsCondition();
-		return (condition instanceof PathPatternsRequestCondition ?
-				((PathPatternsRequestCondition) condition).getPatternValues() :
-				((PatternsRequestCondition) condition).getPatterns());
+		return (condition instanceof PathPatternsRequestCondition pprc ?
+				pprc.getPatternValues() : ((PatternsRequestCondition) condition).getPatterns());
 	}
 
 	/**
@@ -470,10 +468,9 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 		if (this == other) {
 			return true;
 		}
-		if (!(other instanceof RequestMappingInfo)) {
+		if (!(other instanceof RequestMappingInfo otherInfo)) {
 			return false;
 		}
-		RequestMappingInfo otherInfo = (RequestMappingInfo) other;
 		return (getActivePatternsCondition().equals(otherInfo.getActivePatternsCondition()) &&
 				this.methodsCondition.equals(otherInfo.methodsCondition) &&
 				this.paramsCondition.equals(otherInfo.paramsCondition) &&
@@ -509,7 +506,7 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 		}
 
 		// Patterns conditions are never empty and have "" (empty path) at least.
-		builder.append(" ").append(getActivePatternsCondition());
+		builder.append(' ').append(getActivePatternsCondition());
 
 		if (!this.paramsCondition.isEmpty()) {
 			builder.append(", params ").append(this.paramsCondition);
@@ -877,7 +874,7 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 		@Nullable
 		private PathMatcher pathMatcher;
 
-		private boolean trailingSlashMatch = true;
+		private boolean trailingSlashMatch = false;
 
 		private boolean suffixPatternMatch = false;
 
@@ -912,9 +909,9 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 		/**
 		 * Set a custom UrlPathHelper to use for the PatternsRequestCondition.
 		 * <p>By default this is not set.
+		 * @since 4.2.8
 		 * @deprecated as of 5.3, the path is resolved externally and obtained with
 		 * {@link ServletRequestPathUtils#getCachedPathValue(ServletRequest)}
-		 * @since 4.2.8
 		 */
 		@Deprecated
 		public void setUrlPathHelper(@Nullable UrlPathHelper urlPathHelper) {
@@ -950,15 +947,21 @@ public final class RequestMappingInfo implements RequestCondition<RequestMapping
 
 		/**
 		 * Set whether to apply trailing slash matching in PatternsRequestCondition.
-		 * <p>By default this is set to 'true'.
+		 * <p>The default was changed in 6.0 from {@code true} to {@code false} in
+		 * order to support the deprecation of the property.
+		 * @deprecated as of 6.0, see
+		 * {@link PathPatternParser#setMatchOptionalTrailingSeparator(boolean)}
 		 */
+		@Deprecated(since = "6.0")
 		public void setTrailingSlashMatch(boolean trailingSlashMatch) {
 			this.trailingSlashMatch = trailingSlashMatch;
 		}
 
 		/**
 		 * Return whether to apply trailing slash matching in PatternsRequestCondition.
+		 * @deprecated as of 6.0 together with {@link #setTrailingSlashMatch(boolean)}
 		 */
+		@Deprecated(since = "6.0")
 		public boolean useTrailingSlashMatch() {
 			return this.trailingSlashMatch;
 		}
