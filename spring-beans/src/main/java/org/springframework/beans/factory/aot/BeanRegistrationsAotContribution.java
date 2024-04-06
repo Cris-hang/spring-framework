@@ -27,11 +27,13 @@ import org.springframework.aot.generate.GenerationContext;
 import org.springframework.aot.generate.MethodReference;
 import org.springframework.aot.generate.MethodReference.ArgumentCodeGenerator;
 import org.springframework.aot.hint.MemberCategory;
+import org.springframework.aot.hint.ReflectionHints;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.javapoet.ClassName;
 import org.springframework.javapoet.CodeBlock;
 import org.springframework.javapoet.MethodSpec;
+import org.springframework.util.ClassUtils;
 
 /**
  * AOT contribution from a {@link BeanRegistrationsAotProcessor} used to
@@ -109,8 +111,25 @@ class BeanRegistrationsAotContribution
 	}
 
 	private void generateRegisterHints(RuntimeHints runtimeHints, Map<BeanRegistrationKey, Registration> registrations) {
-		registrations.keySet().forEach(beanRegistrationKey -> runtimeHints.reflection()
-				.registerType(beanRegistrationKey.beanClass(), MemberCategory.INTROSPECT_DECLARED_METHODS));
+		registrations.keySet().forEach(beanRegistrationKey -> {
+			ReflectionHints hints = runtimeHints.reflection();
+			Class<?> beanClass = beanRegistrationKey.beanClass();
+			hints.registerType(beanClass, MemberCategory.INTROSPECT_PUBLIC_METHODS, MemberCategory.INTROSPECT_DECLARED_METHODS);
+			introspectPublicMethodsOnAllInterfaces(hints, beanClass);
+		});
+	}
+
+	private void introspectPublicMethodsOnAllInterfaces(ReflectionHints hints, Class<?> type) {
+		Class<?> currentClass = type;
+		while (currentClass != null && currentClass != Object.class) {
+			for (Class<?> interfaceType : currentClass.getInterfaces()) {
+				if (!ClassUtils.isJavaLanguageInterface(interfaceType)) {
+					hints.registerType(interfaceType, MemberCategory.INTROSPECT_PUBLIC_METHODS);
+					introspectPublicMethodsOnAllInterfaces(hints, interfaceType);
+				}
+			}
+			currentClass = currentClass.getSuperclass();
+		}
 	}
 
 	/**

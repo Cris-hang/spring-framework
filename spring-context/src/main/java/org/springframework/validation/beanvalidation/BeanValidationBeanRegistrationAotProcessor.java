@@ -54,7 +54,7 @@ import org.springframework.util.ClassUtils;
  */
 class BeanValidationBeanRegistrationAotProcessor implements BeanRegistrationAotProcessor {
 
-	private static final boolean isBeanValidationPresent = ClassUtils.isPresent(
+	private static final boolean beanValidationPresent = ClassUtils.isPresent(
 			"jakarta.validation.Validation", BeanValidationBeanRegistrationAotProcessor.class.getClassLoader());
 
 	private static final Log logger = LogFactory.getLog(BeanValidationBeanRegistrationAotProcessor.class);
@@ -63,13 +63,16 @@ class BeanValidationBeanRegistrationAotProcessor implements BeanRegistrationAotP
 	@Override
 	@Nullable
 	public BeanRegistrationAotContribution processAheadOfTime(RegisteredBean registeredBean) {
-		if (isBeanValidationPresent) {
+		if (beanValidationPresent) {
 			return BeanValidationDelegate.processAheadOfTime(registeredBean);
 		}
 		return null;
 	}
 
 
+	/**
+	 * Inner class to avoid a hard dependency on the Bean Validation API at runtime.
+	 */
 	private static class BeanValidationDelegate {
 
 		@Nullable
@@ -102,8 +105,12 @@ class BeanValidationBeanRegistrationAotProcessor implements BeanRegistrationAotP
 					logger.warn("Skipping validation constraint hint inference for bean " + registeredBean.getBeanName() +
 							" due to an ArrayIndexOutOfBoundsException at validator level");
 				}
+				else if (ex instanceof TypeNotPresentException) {
+					logger.debug("Skipping validation constraint hint inference for bean " +
+							registeredBean.getBeanName() + " due to a TypeNotPresentException at validator level: " + ex.getMessage());
+				}
 				else {
-					logger.error("Skipping validation constraint hint inference for bean " +
+					logger.warn("Skipping validation constraint hint inference for bean " +
 							registeredBean.getBeanName(), ex);
 				}
 				return null;
@@ -124,18 +131,18 @@ class BeanValidationBeanRegistrationAotProcessor implements BeanRegistrationAotP
 				constraintDescriptors.addAll(propertyDescriptor.getConstraintDescriptors());
 			}
 			if (!constraintDescriptors.isEmpty()) {
-				return new BeanValidationBeanRegistrationAotContribution(constraintDescriptors);
+				return new AotContribution(constraintDescriptors);
 			}
 			return null;
 		}
 	}
 
 
-	private static class BeanValidationBeanRegistrationAotContribution implements BeanRegistrationAotContribution {
+	private static class AotContribution implements BeanRegistrationAotContribution {
 
 		private final Collection<ConstraintDescriptor<?>> constraintDescriptors;
 
-		public BeanValidationBeanRegistrationAotContribution(Collection<ConstraintDescriptor<?>> constraintDescriptors) {
+		public AotContribution(Collection<ConstraintDescriptor<?>> constraintDescriptors) {
 			this.constraintDescriptors = constraintDescriptors;
 		}
 

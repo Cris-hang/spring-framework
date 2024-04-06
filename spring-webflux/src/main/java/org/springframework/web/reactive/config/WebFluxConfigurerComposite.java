@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.MessageCodesResolver;
 import org.springframework.validation.Validator;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
 import org.springframework.web.reactive.result.method.annotation.ArgumentResolverConfigurer;
 import org.springframework.web.reactive.socket.server.WebSocketService;
@@ -51,8 +52,25 @@ public class WebFluxConfigurerComposite implements WebFluxConfigurer {
 
 
 	@Override
-	public void configureContentTypeResolver(RequestedContentTypeResolverBuilder builder) {
-		this.delegates.forEach(delegate -> delegate.configureContentTypeResolver(builder));
+	public void configureHttpMessageCodecs(ServerCodecConfigurer configurer) {
+		this.delegates.forEach(delegate -> delegate.configureHttpMessageCodecs(configurer));
+	}
+
+	@Override
+	public void addFormatters(FormatterRegistry registry) {
+		this.delegates.forEach(delegate -> delegate.addFormatters(registry));
+	}
+
+	@Override
+	@Nullable
+	public Validator getValidator() {
+		return createSingleBean(WebFluxConfigurer::getValidator, Validator.class);
+	}
+
+	@Override
+	@Nullable
+	public MessageCodesResolver getMessageCodesResolver() {
+		return createSingleBean(WebFluxConfigurer::getMessageCodesResolver, MessageCodesResolver.class);
 	}
 
 	@Override
@@ -61,8 +79,35 @@ public class WebFluxConfigurerComposite implements WebFluxConfigurer {
 	}
 
 	@Override
+	public void configureBlockingExecution(BlockingExecutionConfigurer configurer) {
+		this.delegates.forEach(delegate -> delegate.configureBlockingExecution(configurer));
+	}
+
+	@Override
+	public void configureContentTypeResolver(RequestedContentTypeResolverBuilder builder) {
+		this.delegates.forEach(delegate -> delegate.configureContentTypeResolver(builder));
+	}
+
+	@Override
 	public void configurePathMatching(PathMatchConfigurer configurer) {
 		this.delegates.forEach(delegate -> delegate.configurePathMatching(configurer));
+	}
+
+	@Override
+	public void configureArgumentResolvers(ArgumentResolverConfigurer configurer) {
+		this.delegates.forEach(delegate -> delegate.configureArgumentResolvers(configurer));
+	}
+
+	@Override
+	public void addErrorResponseInterceptors(List<ErrorResponse.Interceptor> interceptors) {
+		for (WebFluxConfigurer delegate : this.delegates) {
+			delegate.addErrorResponseInterceptors(interceptors);
+		}
+	}
+
+	@Override
+	public void configureViewResolvers(ViewResolverRegistry registry) {
+		this.delegates.forEach(delegate -> delegate.configureViewResolvers(registry));
 	}
 
 	@Override
@@ -74,36 +119,6 @@ public class WebFluxConfigurerComposite implements WebFluxConfigurer {
 	@Override
 	public WebSocketService getWebSocketService() {
 		return createSingleBean(WebFluxConfigurer::getWebSocketService, WebSocketService.class);
-	}
-
-	@Override
-	public void configureArgumentResolvers(ArgumentResolverConfigurer configurer) {
-		this.delegates.forEach(delegate -> delegate.configureArgumentResolvers(configurer));
-	}
-
-	@Override
-	public void configureHttpMessageCodecs(ServerCodecConfigurer configurer) {
-		this.delegates.forEach(delegate -> delegate.configureHttpMessageCodecs(configurer));
-	}
-
-	@Override
-	public void addFormatters(FormatterRegistry registry) {
-		this.delegates.forEach(delegate -> delegate.addFormatters(registry));
-	}
-
-	@Override
-	public Validator getValidator() {
-		return createSingleBean(WebFluxConfigurer::getValidator, Validator.class);
-	}
-
-	@Override
-	public MessageCodesResolver getMessageCodesResolver() {
-		return createSingleBean(WebFluxConfigurer::getMessageCodesResolver, MessageCodesResolver.class);
-	}
-
-	@Override
-	public void configureViewResolvers(ViewResolverRegistry registry) {
-		this.delegates.forEach(delegate -> delegate.configureViewResolvers(registry));
 	}
 
 	@Nullable

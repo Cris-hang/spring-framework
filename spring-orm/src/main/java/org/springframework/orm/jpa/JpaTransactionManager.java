@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ import org.springframework.util.CollectionUtils;
  * used as the connection factory of the EntityManagerFactory, so you usually
  * don't need to explicitly specify the "dataSource" property.
  *
- * <p>This transaction manager supports nested transactions via JDBC 3.0 Savepoints.
+ * <p>This transaction manager supports nested transactions via JDBC Savepoints.
  * The {@link #setNestedTransactionAllowed "nestedTransactionAllowed"} flag defaults
  * to {@code false} though, since nested transactions will just apply to the JDBC
  * Connection, not to the JPA EntityManager and its cached entity objects and related
@@ -110,7 +110,7 @@ import org.springframework.util.CollectionUtils;
  * @see org.springframework.jdbc.datasource.DataSourceUtils#getConnection
  * @see org.springframework.jdbc.datasource.DataSourceUtils#releaseConnection
  * @see org.springframework.jdbc.core.JdbcTemplate
- * @see org.springframework.jdbc.datasource.DataSourceTransactionManager
+ * @see org.springframework.jdbc.support.JdbcTransactionManager
  * @see org.springframework.transaction.jta.JtaTransactionManager
  */
 @SuppressWarnings("serial")
@@ -535,8 +535,9 @@ public class JpaTransactionManager extends AbstractPlatformTransactionManager
 		SuspendedResourcesHolder resourcesHolder = (SuspendedResourcesHolder) suspendedResources;
 		TransactionSynchronizationManager.bindResource(
 				obtainEntityManagerFactory(), resourcesHolder.getEntityManagerHolder());
-		if (getDataSource() != null && resourcesHolder.getConnectionHolder() != null) {
-			TransactionSynchronizationManager.bindResource(getDataSource(), resourcesHolder.getConnectionHolder());
+		ConnectionHolder connectionHolder = resourcesHolder.getConnectionHolder();
+		if (connectionHolder != null && getDataSource() != null) {
+			TransactionSynchronizationManager.bindResource(getDataSource(), connectionHolder);
 		}
 	}
 
@@ -589,6 +590,10 @@ public class JpaTransactionManager extends AbstractPlatformTransactionManager
 			}
 		}
 		catch (PersistenceException ex) {
+			DataAccessException dae = getJpaDialect().translateExceptionIfPossible(ex);
+			if (dae != null) {
+				throw dae;
+			}
 			throw new TransactionSystemException("Could not roll back JPA transaction", ex);
 		}
 		finally {

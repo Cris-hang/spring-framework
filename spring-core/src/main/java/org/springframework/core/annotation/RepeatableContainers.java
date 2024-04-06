@@ -20,7 +20,9 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.Objects;
 
+import org.springframework.lang.Contract;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ConcurrentReferenceHashMap;
@@ -42,6 +44,8 @@ import org.springframework.util.ObjectUtils;
  * @since 5.2
  */
 public abstract class RepeatableContainers {
+
+	static final Map<Class<? extends Annotation>, Object> cache = new ConcurrentReferenceHashMap<>();
 
 	@Nullable
 	private final RepeatableContainers parent;
@@ -77,6 +81,7 @@ public abstract class RepeatableContainers {
 
 
 	@Override
+	@Contract("null -> false")
 	public boolean equals(@Nullable Object other) {
 		if (other == this) {
 			return true;
@@ -89,7 +94,7 @@ public abstract class RepeatableContainers {
 
 	@Override
 	public int hashCode() {
-		return ObjectUtils.nullSafeHashCode(this.parent);
+		return Objects.hashCode(this.parent);
 	}
 
 
@@ -141,8 +146,6 @@ public abstract class RepeatableContainers {
 	 */
 	private static class StandardRepeatableContainers extends RepeatableContainers {
 
-		private static final Map<Class<? extends Annotation>, Object> cache = new ConcurrentReferenceHashMap<>();
-
 		private static final Object NONE = new Object();
 
 		private static final StandardRepeatableContainers INSTANCE = new StandardRepeatableContainers();
@@ -174,7 +177,7 @@ public abstract class RepeatableContainers {
 			if (method != null) {
 				Class<?> returnType = method.getReturnType();
 				if (returnType.isArray()) {
-					Class<?> componentType = returnType.getComponentType();
+					Class<?> componentType = returnType.componentType();
 					if (Annotation.class.isAssignableFrom(componentType) &&
 							componentType.isAnnotationPresent(Repeatable.class)) {
 						return method;
@@ -211,7 +214,7 @@ public abstract class RepeatableContainers {
 					throw new NoSuchMethodException("No value method found");
 				}
 				Class<?> returnType = valueMethod.getReturnType();
-				if (!returnType.isArray() || returnType.getComponentType() != repeatable) {
+				if (!returnType.isArray() || returnType.componentType() != repeatable) {
 					throw new AnnotationConfigurationException(
 							"Container type [%s] must declare a 'value' attribute for an array of type [%s]"
 								.formatted(container.getName(), repeatable.getName()));

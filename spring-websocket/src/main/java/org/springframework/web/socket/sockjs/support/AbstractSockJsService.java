@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public abstract class AbstractSockJsService implements SockJsService, CorsConfig
 
 	private String name = "SockJSService@" + ObjectUtils.getIdentityHexString(this);
 
-	private String clientLibraryUrl = "https://cdn.jsdelivr.net/sockjs/1.0.0/sockjs.min.js";
+	private String clientLibraryUrl = "https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js";
 
 	private int streamBytesLimit = 128 * 1024;
 
@@ -341,6 +341,7 @@ public abstract class AbstractSockJsService implements SockJsService, CorsConfig
 	 * @since 4.1.2
 	 */
 	@SuppressWarnings("ConstantConditions")
+	@Nullable
 	public Collection<String> getAllowedOrigins() {
 		return this.corsConfiguration.getAllowedOrigins();
 	}
@@ -363,6 +364,7 @@ public abstract class AbstractSockJsService implements SockJsService, CorsConfig
 	 * @since 5.3.2
 	 */
 	@SuppressWarnings("ConstantConditions")
+	@Nullable
 	public Collection<String> getAllowedOriginPatterns() {
 		return this.corsConfiguration.getAllowedOriginPatterns();
 	}
@@ -415,8 +417,8 @@ public abstract class AbstractSockJsService implements SockJsService, CorsConfig
 			}
 
 			else if (sockJsPath.matches("/iframe[0-9-.a-z_]*.html")) {
-				if (!getAllowedOrigins().isEmpty() && !getAllowedOrigins().contains("*") ||
-						!getAllowedOriginPatterns().isEmpty()) {
+				if (!CollectionUtils.isEmpty(getAllowedOrigins()) && !getAllowedOrigins().contains("*") ||
+						!CollectionUtils.isEmpty(getAllowedOriginPatterns())) {
 					if (requestInfo != null) {
 						logger.debug("Iframe support is disabled when an origin check is required. " +
 								"Ignoring transport request: " + requestInfo);
@@ -424,7 +426,7 @@ public abstract class AbstractSockJsService implements SockJsService, CorsConfig
 					response.setStatusCode(HttpStatus.NOT_FOUND);
 					return;
 				}
-				if (getAllowedOrigins().isEmpty()) {
+				if (CollectionUtils.isEmpty(getAllowedOrigins())) {
 					response.getHeaders().add(XFRAME_OPTIONS_HEADER, "SAMEORIGIN");
 				}
 				if (requestInfo != null) {

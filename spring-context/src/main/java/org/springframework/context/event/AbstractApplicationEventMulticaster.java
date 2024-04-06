@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -39,6 +40,7 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 
 /**
@@ -228,6 +230,7 @@ public abstract class AbstractApplicationEventMulticaster
 	 * @param retriever the ListenerRetriever, if supposed to populate one (for caching purposes)
 	 * @return the pre-filtered list of application listeners for the given event and source type
 	 */
+	@SuppressWarnings("NullAway")
 	private Collection<ApplicationListener<?>> retrieveApplicationListeners(
 			ResolvableType eventType, @Nullable Class<?> sourceType, @Nullable CachedListenerRetriever retriever) {
 
@@ -262,6 +265,24 @@ public abstract class AbstractApplicationEventMulticaster
 					if (supportsEvent(beanFactory, listenerBeanName, eventType)) {
 						ApplicationListener<?> listener =
 								beanFactory.getBean(listenerBeanName, ApplicationListener.class);
+
+						// Despite best efforts to avoid it, unwrapped proxies (singleton targets) can end up in the
+						// list of programmatically registered listeners. In order to avoid duplicates, we need to find
+						// and replace them by their proxy counterparts, because if both a proxy and its target end up
+						// in 'allListeners', listeners will fire twice.
+						ApplicationListener<?> unwrappedListener =
+								(ApplicationListener<?>) AopProxyUtils.getSingletonTarget(listener);
+						if (listener != unwrappedListener) {
+							if (filteredListeners != null && filteredListeners.contains(unwrappedListener)) {
+								filteredListeners.remove(unwrappedListener);
+								filteredListeners.add(listener);
+							}
+							if (allListeners.contains(unwrappedListener)) {
+								allListeners.remove(unwrappedListener);
+								allListeners.add(listener);
+							}
+						}
+
 						if (!allListeners.contains(listener) && supportsEvent(listener, eventType, sourceType)) {
 							if (retriever != null) {
 								if (beanFactory.isSingleton(listenerBeanName)) {
@@ -294,7 +315,7 @@ public abstract class AbstractApplicationEventMulticaster
 
 		AnnotationAwareOrderComparator.sort(allListeners);
 		if (retriever != null) {
-			if (filteredListenerBeans.isEmpty()) {
+			if (CollectionUtils.isEmpty(filteredListenerBeans)) {
 				retriever.applicationListeners = new LinkedHashSet<>(allListeners);
 				retriever.applicationListenerBeans = filteredListenerBeans;
 			}
@@ -397,19 +418,14 @@ public abstract class AbstractApplicationEventMulticaster
 
 		@Override
 		public boolean equals(@Nullable Object other) {
-			if (this == other) {
-				return true;
-			}
-			if (!(other instanceof ListenerCacheKey otherKey)) {
-				return false;
-			}
-			return (this.eventType.equals(otherKey.eventType) &&
-					ObjectUtils.nullSafeEquals(this.sourceType, otherKey.sourceType));
+			return (this == other || (other instanceof ListenerCacheKey that &&
+					this.eventType.equals(that.eventType) &&
+					ObjectUtils.nullSafeEquals(this.sourceType, that.sourceType)));
 		}
 
 		@Override
 		public int hashCode() {
-			return this.eventType.hashCode() * 29 + ObjectUtils.nullSafeHashCode(this.sourceType);
+			return Objects.hash(this.eventType, this.sourceType);
 		}
 
 		@Override

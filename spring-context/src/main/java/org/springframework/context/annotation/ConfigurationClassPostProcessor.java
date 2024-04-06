@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -40,6 +41,7 @@ import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
 import org.springframework.aot.generate.GeneratedMethod;
 import org.springframework.aot.generate.GenerationContext;
 import org.springframework.aot.hint.ExecutableMode;
+import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.ResourceHints;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.TypeReference;
@@ -56,6 +58,7 @@ import org.springframework.beans.factory.aot.BeanRegistrationAotProcessor;
 import org.springframework.beans.factory.aot.BeanRegistrationCode;
 import org.springframework.beans.factory.aot.BeanRegistrationCodeFragments;
 import org.springframework.beans.factory.aot.BeanRegistrationCodeFragmentsDecorator;
+import org.springframework.beans.factory.aot.InstanceSupplierCodeGenerator;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
@@ -82,10 +85,13 @@ import org.springframework.core.PriorityOrdered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PropertySourceDescriptor;
 import org.springframework.core.io.support.PropertySourceProcessor;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.core.metrics.ApplicationStartup;
 import org.springframework.core.metrics.StartupStep;
 import org.springframework.core.type.AnnotationMetadata;
@@ -311,22 +317,23 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		Object configClassAttr = registeredBean.getMergedBeanDefinition()
 				.getAttribute(ConfigurationClassUtils.CONFIGURATION_CLASS_ATTRIBUTE);
 		if (ConfigurationClassUtils.CONFIGURATION_CLASS_FULL.equals(configClassAttr)) {
-			Class<?> proxyClass = registeredBean.getBeanType().toClass();
 			return BeanRegistrationAotContribution.withCustomCodeFragments(codeFragments ->
-					new ConfigurationClassProxyBeanRegistrationCodeFragments(codeFragments, proxyClass));
+					new ConfigurationClassProxyBeanRegistrationCodeFragments(codeFragments, registeredBean));
 		}
 		return null;
 	}
 
 	@Override
 	@Nullable
+	@SuppressWarnings("NullAway")
 	public BeanFactoryInitializationAotContribution processAheadOfTime(ConfigurableListableBeanFactory beanFactory) {
 		boolean hasPropertySourceDescriptors = !CollectionUtils.isEmpty(this.propertySourceDescriptors);
 		boolean hasImportRegistry = beanFactory.containsBean(IMPORT_REGISTRY_BEAN_NAME);
 		if (hasPropertySourceDescriptors || hasImportRegistry) {
 			return (generationContext, code) -> {
 				if (hasPropertySourceDescriptors) {
-					new PropertySourcesAotContribution(this.propertySourceDescriptors).applyTo(generationContext, code);
+					new PropertySourcesAotContribution(this.propertySourceDescriptors, this::resolvePropertySourceLocation)
+							.applyTo(generationContext, code);
 				}
 				if (hasImportRegistry) {
 					new ImportAwareAotContribution(beanFactory).applyTo(generationContext, code);
@@ -334,6 +341,18 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			};
 		}
 		return null;
+	}
+
+	@Nullable
+	private Resource resolvePropertySourceLocation(String location) {
+		try {
+			String resolvedLocation = (this.environment != null ?
+					this.environment.resolveRequiredPlaceholders(location) : location);
+			return this.resourceLoader.getResource(resolvedLocation);
+		}
+		catch (Exception ex) {
+			return null;
+		}
 	}
 
 	/**
@@ -392,7 +411,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 				this.resourceLoader, this.componentScanBeanNameGenerator, registry);
 
 		Set<BeanDefinitionHolder> candidates = new LinkedHashSet<>(configCandidates);
-		Set<ConfigurationClass> alreadyParsed = new HashSet<>(configCandidates.size());
+		Set<ConfigurationClass> alreadyParsed = CollectionUtils.newHashSet(configCandidates.size());
 		do {
 			StartupStep processConfig = this.applicationStartup.start("spring.context.config-classes.parse");
 			parser.parse(candidates);
@@ -415,7 +434,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			if (registry.getBeanDefinitionCount() > candidateNames.length) {
 				String[] newCandidateNames = registry.getBeanDefinitionNames();
 				Set<String> oldCandidateNames = Set.of(candidateNames);
-				Set<String> alreadyParsedClasses = new HashSet<>();
+				Set<String> alreadyParsedClasses = CollectionUtils.newHashSet(alreadyParsed.size());
 				for (ConfigurationClass configurationClass : alreadyParsed) {
 					alreadyParsedClasses.add(configurationClass.getMetadata().getClassName());
 				}
@@ -489,13 +508,18 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 					throw new BeanDefinitionStoreException("Cannot enhance @Configuration bean definition '" +
 							beanName + "' since it is not stored in an AbstractBeanDefinition subclass");
 				}
-				else if (logger.isInfoEnabled() && beanFactory.containsSingleton(beanName)) {
-					logger.info("Cannot enhance @Configuration bean definition '" + beanName +
-							"' since its singleton instance has been created too early. The typical cause " +
-							"is a non-static @Bean method with a BeanDefinitionRegistryPostProcessor " +
-							"return type: Consider declaring such methods as 'static'.");
+				else if (beanFactory.containsSingleton(beanName)) {
+					if (logger.isWarnEnabled()) {
+						logger.warn("Cannot enhance @Configuration bean definition '" + beanName +
+								"' since its singleton instance has been created too early. The typical cause " +
+								"is a non-static @Bean method with a BeanDefinitionRegistryPostProcessor " +
+								"return type: Consider declaring such methods as 'static' and/or marking the " +
+								"containing configuration class as 'proxyBeanMethods=false'.");
+					}
 				}
-				configBeanDefs.put(beanName, abd);
+				else {
+					configBeanDefs.put(beanName, abd);
+				}
 			}
 		}
 		if (configBeanDefs.isEmpty()) {
@@ -533,6 +557,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		@Override
+		@Nullable
 		public PropertyValues postProcessProperties(@Nullable PropertyValues pvs, Object bean, String beanName) {
 			// Inject the BeanFactory before AutowiredAnnotationBeanPostProcessor's
 			// postProcessProperties method attempts to autowire other configuration beans.
@@ -581,15 +606,11 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 			Map<String, String> mappings = buildImportAwareMappings();
 			if (!mappings.isEmpty()) {
-				GeneratedMethod generatedMethod = beanFactoryInitializationCode
-						.getMethods()
-						.add("addImportAwareBeanPostProcessors", method ->
-								generateAddPostProcessorMethod(method, mappings));
-				beanFactoryInitializationCode
-						.addInitializer(generatedMethod.toMethodReference());
+				GeneratedMethod generatedMethod = beanFactoryInitializationCode.getMethods().add(
+						"addImportAwareBeanPostProcessors", method -> generateAddPostProcessorMethod(method, mappings));
+				beanFactoryInitializationCode.addInitializer(generatedMethod.toMethodReference());
 				ResourceHints hints = generationContext.getRuntimeHints().resources();
-				mappings.forEach(
-						(target, from) -> hints.registerType(TypeReference.of(from)));
+				mappings.forEach((target, from) -> hints.registerType(TypeReference.of(from)));
 			}
 		}
 
@@ -618,8 +639,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		private Map<String, String> buildImportAwareMappings() {
-			ImportRegistry importRegistry = this.beanFactory
-					.getBean(IMPORT_REGISTRY_BEAN_NAME, ImportRegistry.class);
+			ImportRegistry importRegistry = this.beanFactory.getBean(IMPORT_REGISTRY_BEAN_NAME, ImportRegistry.class);
 			Map<String, String> mappings = new LinkedHashMap<>();
 			for (String name : this.beanFactory.getBeanDefinitionNames()) {
 				Class<?> beanType = this.beanFactory.getType(name);
@@ -633,8 +653,8 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			}
 			return mappings;
 		}
-
 	}
+
 
 	private static class PropertySourcesAotContribution implements BeanFactoryInitializationAotContribution {
 
@@ -642,19 +662,52 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		private static final String RESOURCE_LOADER_VARIABLE = "resourceLoader";
 
+		private final Log logger = LogFactory.getLog(getClass());
+
 		private final List<PropertySourceDescriptor> descriptors;
 
-		PropertySourcesAotContribution(List<PropertySourceDescriptor> descriptors) {
+		private final Function<String, Resource> resourceResolver;
+
+		PropertySourcesAotContribution(List<PropertySourceDescriptor> descriptors, Function<String, Resource> resourceResolver) {
 			this.descriptors = descriptors;
+			this.resourceResolver = resourceResolver;
 		}
 
 		@Override
 		public void applyTo(GenerationContext generationContext, BeanFactoryInitializationCode beanFactoryInitializationCode) {
-			GeneratedMethod generatedMethod = beanFactoryInitializationCode
-					.getMethods()
+			registerRuntimeHints(generationContext.getRuntimeHints());
+			GeneratedMethod generatedMethod = beanFactoryInitializationCode.getMethods()
 					.add("processPropertySources", this::generateAddPropertySourceProcessorMethod);
-			beanFactoryInitializationCode
-					.addInitializer(generatedMethod.toMethodReference());
+			beanFactoryInitializationCode.addInitializer(generatedMethod.toMethodReference());
+		}
+
+		private void registerRuntimeHints(RuntimeHints hints) {
+			for (PropertySourceDescriptor descriptor : this.descriptors) {
+				Class<?> factoryClass = descriptor.propertySourceFactory();
+				if (factoryClass != null) {
+					hints.reflection().registerType(factoryClass, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+				}
+				for (String location : descriptor.locations()) {
+					if (location.startsWith(ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX) ||
+							(location.startsWith(ResourcePatternResolver.CLASSPATH_URL_PREFIX) &&
+									(location.contains("*") || location.contains("?")))) {
+
+						if (logger.isWarnEnabled()) {
+							logger.warn("""
+									Runtime hint registration is not supported for the 'classpath*:' \
+									prefix or wildcards in @PropertySource locations. Please manually \
+									register a resource hint for each property source location represented \
+									by '%s'.""".formatted(location));
+						}
+					}
+					else {
+						Resource resource = this.resourceResolver.apply(location);
+						if (resource instanceof ClassPathResource classPathResource && classPathResource.exists()) {
+							hints.resources().registerPattern(classPathResource.getPath());
+						}
+					}
+				}
+			}
 		}
 
 		private void generateAddPropertySourceProcessorMethod(MethodSpec.Builder method) {
@@ -687,8 +740,8 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			code.add("new $T(", PropertySourceDescriptor.class);
 			CodeBlock values = descriptor.locations().stream()
 					.map(value -> CodeBlock.of("$S", value)).collect(CodeBlock.joining(", "));
-			if (descriptor.name() == null && descriptor.propertySourceFactory() == null
-					&& descriptor.encoding() == null && !descriptor.ignoreResourceNotFound()) {
+			if (descriptor.name() == null && descriptor.propertySourceFactory() == null &&
+					descriptor.encoding() == null && !descriptor.ignoreResourceNotFound()) {
 				code.add("$L)", values);
 			}
 			else {
@@ -714,22 +767,27 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 				return nonNull.get();
 			}
 		}
-
 	}
+
 
 	private static class ConfigurationClassProxyBeanRegistrationCodeFragments extends BeanRegistrationCodeFragmentsDecorator {
 
+		private final RegisteredBean registeredBean;
+
 		private final Class<?> proxyClass;
 
-		public ConfigurationClassProxyBeanRegistrationCodeFragments(BeanRegistrationCodeFragments codeFragments,
-				Class<?> proxyClass) {
+		public ConfigurationClassProxyBeanRegistrationCodeFragments(
+				BeanRegistrationCodeFragments codeFragments, RegisteredBean registeredBean) {
+
 			super(codeFragments);
-			this.proxyClass = proxyClass;
+			this.registeredBean = registeredBean;
+			this.proxyClass = registeredBean.getBeanType().toClass();
 		}
 
 		@Override
 		public CodeBlock generateSetBeanDefinitionPropertiesCode(GenerationContext generationContext,
 				BeanRegistrationCode beanRegistrationCode, RootBeanDefinition beanDefinition, Predicate<String> attributeFilter) {
+
 			CodeBlock.Builder code = CodeBlock.builder();
 			code.add(super.generateSetBeanDefinitionPropertiesCode(generationContext,
 					beanRegistrationCode, beanDefinition, attributeFilter));
@@ -740,11 +798,13 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 		@Override
 		public CodeBlock generateInstanceSupplierCode(GenerationContext generationContext,
-				BeanRegistrationCode beanRegistrationCode, Executable constructorOrFactoryMethod,
-				boolean allowDirectSupplierShortcut) {
-			Executable executableToUse = proxyExecutable(generationContext.getRuntimeHints(), constructorOrFactoryMethod);
-			return super.generateInstanceSupplierCode(generationContext, beanRegistrationCode,
-					executableToUse, allowDirectSupplierShortcut);
+				BeanRegistrationCode beanRegistrationCode, boolean allowDirectSupplierShortcut) {
+
+			Executable executableToUse = proxyExecutable(generationContext.getRuntimeHints(),
+					this.registeredBean.resolveConstructorOrFactoryMethod());
+			return new InstanceSupplierCodeGenerator(generationContext,
+					beanRegistrationCode.getClassName(), beanRegistrationCode.getMethods(), allowDirectSupplierShortcut)
+					.generateCode(this.registeredBean, executableToUse);
 		}
 
 		private Executable proxyExecutable(RuntimeHints runtimeHints, Executable userExecutable) {
@@ -759,7 +819,6 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			}
 			return userExecutable;
 		}
-
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,6 +155,7 @@ public class TransactionalTestExecutionListener extends AbstractTestExecutionLis
 	protected final TransactionAttributeSource attributeSource = new AnnotationTransactionAttributeSource(false) {
 
 		@Override
+		@Nullable
 		protected TransactionAttribute findTransactionAttribute(Class<?> clazz) {
 			// @Transactional present in inheritance hierarchy?
 			TransactionAttribute result = super.findTransactionAttribute(clazz);
@@ -195,6 +196,7 @@ public class TransactionalTestExecutionListener extends AbstractTestExecutionLis
 	 * @see #getTransactionManager(TestContext, String)
 	 */
 	@Override
+	@SuppressWarnings("NullAway")
 	public void beforeTestMethod(final TestContext testContext) throws Exception {
 		Method testMethod = testContext.getTestMethod();
 		Class<?> testClass = testContext.getTestClass();
@@ -287,8 +289,7 @@ public class TransactionalTestExecutionListener extends AbstractTestExecutionLis
 					logger.debug("Executing @BeforeTransaction method [%s] for test class [%s]"
 							.formatted(method, testClass.getName()));
 				}
-				ReflectionUtils.makeAccessible(method);
-				method.invoke(testContext.getTestInstance());
+				testContext.getMethodInvoker().invoke(method, testContext.getTestInstance());
 			}
 		}
 		catch (InvocationTargetException ex) {
@@ -323,8 +324,7 @@ public class TransactionalTestExecutionListener extends AbstractTestExecutionLis
 					logger.debug("Executing @AfterTransaction method [%s] for test class [%s]"
 							.formatted(method, testClass.getName()));
 				}
-				ReflectionUtils.makeAccessible(method);
-				method.invoke(testContext.getTestInstance());
+				testContext.getMethodInvoker().invoke(method, testContext.getTestInstance());
 			}
 			catch (InvocationTargetException ex) {
 				Throwable targetException = ex.getTargetException();
@@ -415,6 +415,7 @@ public class TransactionalTestExecutionListener extends AbstractTestExecutionLis
 	 * @return the <em>default rollback</em> flag for the supplied test context
 	 * @throws Exception if an error occurs while determining the default rollback flag
 	 */
+	@SuppressWarnings("NullAway")
 	protected final boolean isDefaultRollback(TestContext testContext) throws Exception {
 		Class<?> testClass = testContext.getTestClass();
 		Rollback rollback = TestContextAnnotationUtils.findMergedAnnotation(testClass, Rollback.class);

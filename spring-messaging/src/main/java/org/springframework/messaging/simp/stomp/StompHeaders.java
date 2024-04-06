@@ -278,13 +278,15 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 	 * Get the heartbeat header.
 	 */
 	@Nullable
+	@SuppressWarnings("NullAway")
 	public long[] getHeartbeat() {
 		String rawValue = getFirst(HEARTBEAT);
-		String[] rawValues = StringUtils.split(rawValue, ",");
-		if (rawValues == null) {
+		int pos = (rawValue != null ? rawValue.indexOf(',') : -1);
+		if (pos == -1) {
 			return null;
 		}
-		return new long[] {Long.parseLong(rawValues[0]), Long.parseLong(rawValues[1])};
+		return new long[] {Long.parseLong(rawValue, 0, pos, 10),
+				Long.parseLong(rawValue, pos + 1, rawValue.length(), 10)};
 	}
 
 	/**
@@ -513,6 +515,7 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 	}
 
 	@Override
+	@Nullable
 	public List<String> get(Object key) {
 		return this.headers.get(key);
 	}
@@ -554,8 +557,8 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
-		return (this == obj || (obj instanceof StompHeaders that && this.headers.equals(that.headers)));
+	public boolean equals(@Nullable Object other) {
+		return (this == other || (other instanceof StompHeaders that && this.headers.equals(that.headers)));
 	}
 
 	@Override

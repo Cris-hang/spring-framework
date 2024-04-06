@@ -17,6 +17,7 @@
 package org.springframework.web.socket;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -53,7 +54,7 @@ public final class CloseStatus implements Serializable {
 	 * "1002 indicates that an endpoint is terminating the connection due to a protocol
 	 * error."
 	 */
-	public static final CloseStatus PROTOCOL_ERROR  = new CloseStatus(1002);
+	public static final CloseStatus PROTOCOL_ERROR = new CloseStatus(1002);
 
 	/**
 	 * "1003 indicates that an endpoint is terminating the connection because it has
@@ -207,18 +208,13 @@ public final class CloseStatus implements Serializable {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof CloseStatus otherStatus)) {
-			return false;
-		}
-		return (this.code == otherStatus.code && ObjectUtils.nullSafeEquals(this.reason, otherStatus.reason));
+		return (this == other || (other instanceof CloseStatus that &&
+				this.code == that.code && ObjectUtils.nullSafeEquals(this.reason, that.reason)));
 	}
 
 	@Override
 	public int hashCode() {
-		return this.code * 29 + ObjectUtils.nullSafeHashCode(this.reason);
+		return Objects.hash(this.code, this.reason);
 	}
 
 	@Override

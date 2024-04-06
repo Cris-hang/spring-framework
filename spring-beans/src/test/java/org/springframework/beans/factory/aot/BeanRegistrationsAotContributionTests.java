@@ -36,6 +36,9 @@ import org.springframework.beans.factory.aot.BeanRegistrationsAotContribution.Re
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RegisteredBean;
 import org.springframework.beans.factory.support.RootBeanDefinition;
+import org.springframework.beans.testfixture.beans.AgeHolder;
+import org.springframework.beans.testfixture.beans.Employee;
+import org.springframework.beans.testfixture.beans.ITestBean;
 import org.springframework.beans.testfixture.beans.TestBean;
 import org.springframework.beans.testfixture.beans.factory.aot.MockBeanFactoryInitializationCode;
 import org.springframework.core.test.io.support.MockSpringFactoriesLoader;
@@ -75,7 +78,7 @@ class BeanRegistrationsAotContributionTests {
 		RegisteredBean registeredBean = registerBean(new RootBeanDefinition(TestBean.class));
 		BeanDefinitionMethodGenerator generator = new BeanDefinitionMethodGenerator(this.methodGeneratorFactory,
 				registeredBean, null, List.of());
-		BeanRegistrationsAotContribution contribution = createContribution(generator);
+		BeanRegistrationsAotContribution contribution = createContribution(TestBean.class, generator);
 		contribution.applyTo(this.generationContext, this.beanFactoryInitializationCode);
 		compile((consumer, compiled) -> {
 			DefaultListableBeanFactory freshBeanFactory = new DefaultListableBeanFactory();
@@ -89,7 +92,7 @@ class BeanRegistrationsAotContributionTests {
 		RegisteredBean registeredBean = registerBean(new RootBeanDefinition(TestBean.class));
 		BeanDefinitionMethodGenerator generator = new BeanDefinitionMethodGenerator(this.methodGeneratorFactory,
 				registeredBean, null, List.of());
-		BeanRegistrationsAotContribution contribution = createContribution(generator, "testAlias");
+		BeanRegistrationsAotContribution contribution = createContribution(TestBean.class, generator, "testAlias");
 		contribution.applyTo(this.generationContext, this.beanFactoryInitializationCode);
 		compile((consumer, compiled) -> {
 			DefaultListableBeanFactory freshBeanFactory = new DefaultListableBeanFactory();
@@ -106,7 +109,7 @@ class BeanRegistrationsAotContributionTests {
 		RegisteredBean registeredBean = registerBean(new RootBeanDefinition(TestBean.class));
 		BeanDefinitionMethodGenerator generator = new BeanDefinitionMethodGenerator(this.methodGeneratorFactory,
 				registeredBean, null, List.of());
-		BeanRegistrationsAotContribution contribution = createContribution(generator);
+		BeanRegistrationsAotContribution contribution = createContribution(TestBean.class, generator);
 		contribution.applyTo(this.generationContext, this.beanFactoryInitializationCode);
 		compile((consumer, compiled) -> {
 			SourceFile sourceFile = compiled.getSourceFile(".*BeanDefinitions");
@@ -129,7 +132,7 @@ class BeanRegistrationsAotContributionTests {
 			}
 
 		};
-		BeanRegistrationsAotContribution contribution = createContribution(generator);
+		BeanRegistrationsAotContribution contribution = createContribution(TestBean.class, generator);
 		contribution.applyTo(this.generationContext, this.beanFactoryInitializationCode);
 		assertThat(beanRegistrationsCodes).hasSize(1);
 		BeanRegistrationsCode actual = beanRegistrationsCodes.get(0);
@@ -138,13 +141,19 @@ class BeanRegistrationsAotContributionTests {
 
 	@Test
 	void applyToRegisterReflectionHints() {
-		RegisteredBean registeredBean = registerBean(new RootBeanDefinition(TestBean.class));
+		RegisteredBean registeredBean = registerBean(new RootBeanDefinition(Employee.class));
 		BeanDefinitionMethodGenerator generator = new BeanDefinitionMethodGenerator(this.methodGeneratorFactory,
 				registeredBean, null, List.of());
-		BeanRegistrationsAotContribution contribution = createContribution(generator);
+		BeanRegistrationsAotContribution contribution = createContribution(Employee.class, generator);
 		contribution.applyTo(this.generationContext, this.beanFactoryInitializationCode);
-		assertThat(reflection().onType(TestBean.class)
-				.withMemberCategory(MemberCategory.INTROSPECT_DECLARED_METHODS))
+		assertThat(reflection().onType(Employee.class)
+				.withMemberCategories(MemberCategory.INTROSPECT_PUBLIC_METHODS, MemberCategory.INTROSPECT_DECLARED_METHODS))
+				.accepts(this.generationContext.getRuntimeHints());
+		assertThat(reflection().onType(ITestBean.class)
+				.withMemberCategory(MemberCategory.INTROSPECT_PUBLIC_METHODS))
+				.accepts(this.generationContext.getRuntimeHints());
+		assertThat(reflection().onType(AgeHolder.class)
+				.withMemberCategory(MemberCategory.INTROSPECT_PUBLIC_METHODS))
 				.accepts(this.generationContext.getRuntimeHints());
 	}
 
@@ -177,10 +186,10 @@ class BeanRegistrationsAotContributionTests {
 				result.accept(compiled.getInstance(Consumer.class), compiled));
 	}
 
-	private BeanRegistrationsAotContribution createContribution(
+	private BeanRegistrationsAotContribution createContribution(Class<?> beanClass,
 			BeanDefinitionMethodGenerator methodGenerator,String... aliases) {
 		return new BeanRegistrationsAotContribution(
-			Map.of(new BeanRegistrationKey("testBean", TestBean.class), new Registration(methodGenerator, aliases)));
+			Map.of(new BeanRegistrationKey("testBean", beanClass), new Registration(methodGenerator, aliases)));
 	}
 
 }

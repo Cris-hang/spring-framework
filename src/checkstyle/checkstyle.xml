@@ -187,6 +187,12 @@
 			<property name="tagOrder" value="@param, @return, @throws, @since, @see, @deprecated"/>
 		</module>
 
+		<!-- Modifiers -->
+		<module name="com.puppycrawl.tools.checkstyle.checks.modifier.ModifierOrderCheck"/>
+
+		<!-- Whitespace -->
+		<module name="com.puppycrawl.tools.checkstyle.checks.whitespace.SingleSpaceSeparatorCheck"/>
+
 		<!-- Miscellaneous -->
 		<module name="com.puppycrawl.tools.checkstyle.checks.indentation.CommentsIndentationCheck">
 			<property name="tokens" value="BLOCK_COMMENT_BEGIN"/>
@@ -194,6 +200,7 @@
 		<module name="com.puppycrawl.tools.checkstyle.checks.UpperEllCheck"/>
 		<module name="com.puppycrawl.tools.checkstyle.checks.ArrayTypeStyleCheck"/>
 		<module name="com.puppycrawl.tools.checkstyle.checks.OuterTypeFilenameCheck"/>
+		<module name="UnnecessarySemicolonInEnumeration"/>
 
 		<!-- Regexp -->
 		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
@@ -206,6 +213,13 @@
 			<property name="format" value="[ \t]+$"/>
 			<property name="illegalPattern" value="true"/>
 			<property name="message" value="Trailing whitespace"/>
+		</module>
+		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
+			<property name="id" value="primitiveClassLiterals"/>
+			<property name="maximum" value="0"/>
+			<property name="format" value="(Boolean|Character|Byte|Short|Integer|Long|Float|Double|Void)\.TYPE"/>
+			<property name="message" value="Please use class literals for primitives and void -- for example, int.class instead of Integer.TYPE."/>
+			<property name="ignoreComments" value="true"/>
 		</module>
 		<module
 			name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
@@ -233,14 +247,14 @@
 		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
 			<property name="id" value="junit4Assertions"/>
 			<property name="maximum" value="0"/>
-			<property name="format" value="org\.junit\.Assert\.assert"/>
+			<property name="format" value="org\.junit\.Assert"/>
 			<property name="message" value="Please use AssertJ assertions."/>
 			<property name="ignoreComments" value="true"/>
 		</module>
 		<module name="com.puppycrawl.tools.checkstyle.checks.regexp.RegexpSinglelineJavaCheck">
 			<property name="id" value="junitJupiterAssertions"/>
 			<property name="maximum" value="0"/>
-			<property name="format" value="org\.junit\.jupiter\.api\.Assertions\.assert"/>
+			<property name="format" value="org\.junit\.jupiter\.api\.Assertions"/>
 			<property name="message" value="Please use AssertJ assertions."/>
 			<property name="ignoreComments" value="true"/>
 		</module>
@@ -248,7 +262,7 @@
 			<property name="id" value="testNGAssertions"/>
 			<property name="maximum" value="0"/>
 			<!-- should cover org.testng.Assert and org.testng.AssertJUnit -->
-			<property name="format" value="org\.testng\.Assert(JUnit)?\.assert"/>
+			<property name="format" value="org\.testng\.Assert(JUnit)?"/>
 			<property name="message" value="Please use AssertJ assertions."/>
 			<property name="ignoreComments" value="true"/>
 		</module>

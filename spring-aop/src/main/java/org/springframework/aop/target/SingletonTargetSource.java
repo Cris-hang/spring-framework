@@ -68,11 +68,6 @@ public class SingletonTargetSource implements TargetSource, Serializable {
 	}
 
 	@Override
-	public void releaseTarget(Object target) {
-		// nothing to do
-	}
-
-	@Override
 	public boolean isStatic() {
 		return true;
 	}
@@ -84,13 +79,8 @@ public class SingletonTargetSource implements TargetSource, Serializable {
 	 */
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof SingletonTargetSource otherTargetSource)) {
-			return false;
-		}
-		return this.target.equals(otherTargetSource.target);
+		return (this == other || (other instanceof SingletonTargetSource that &&
+				this.target.equals(that.target)));
 	}
 
 	/**

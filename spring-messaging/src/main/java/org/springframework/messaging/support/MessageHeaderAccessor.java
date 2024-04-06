@@ -600,7 +600,7 @@ public class MessageHeaderAccessor {
 
 		if (messageHeaders instanceof MutableMessageHeaders mutableHeaders) {
 			MessageHeaderAccessor headerAccessor = mutableHeaders.getAccessor();
-			if (requiredType == null || requiredType.isInstance(headerAccessor))  {
+			if (requiredType == null || requiredType.isInstance(headerAccessor)) {
 				return (T) headerAccessor;
 			}
 		}
@@ -645,6 +645,7 @@ public class MessageHeaderAccessor {
 			return super.getRawHeaders();
 		}
 
+		@SuppressWarnings("NullAway")
 		public void setImmutable() {
 			if (!this.mutable) {
 				return;

@@ -982,7 +982,10 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 				return;
 			}
 		}
-		super.doTrace(request, response);
+		// Work around until https://github.com/jakartaee/servlet/pull/545 is fixed and in use
+		if (request.getDispatcherType() != DispatcherType.ERROR) {
+			super.doTrace(request, response);
+		}
 	}
 
 	/**
@@ -1212,7 +1215,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			}
 		}
 		@Override
-		public <T> void postProcess(NativeWebRequest webRequest, Callable<T> task, Object concurrentResult) {
+		public <T> void postProcess(NativeWebRequest webRequest, Callable<T> task, @Nullable Object concurrentResult) {
 			HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
 			if (request != null) {
 				resetContextHolders(request, null, null);

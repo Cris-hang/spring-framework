@@ -16,7 +16,6 @@
 
 package org.springframework.aop.scope;
 
-import java.lang.reflect.Executable;
 import java.util.function.Predicate;
 
 import javax.lang.model.element.Modifier;
@@ -54,6 +53,8 @@ class ScopedProxyBeanRegistrationAotProcessor implements BeanRegistrationAotProc
 
 
 	@Override
+	@Nullable
+	@SuppressWarnings("NullAway")
 	public BeanRegistrationAotContribution processAheadOfTime(RegisteredBean registeredBean) {
 		Class<?> beanClass = registeredBean.getBeanClass();
 		if (beanClass.equals(ScopedProxyFactoryBean.class)) {
@@ -109,7 +110,7 @@ class ScopedProxyBeanRegistrationAotProcessor implements BeanRegistrationAotProc
 		}
 
 		@Override
-		public ClassName getTarget(RegisteredBean registeredBean, Executable constructorOrFactoryMethod) {
+		public ClassName getTarget(RegisteredBean registeredBean) {
 			return ClassName.get(this.targetBeanDefinition.getResolvableType().toClass());
 		}
 
@@ -139,9 +140,7 @@ class ScopedProxyBeanRegistrationAotProcessor implements BeanRegistrationAotProc
 
 		@Override
 		public CodeBlock generateInstanceSupplierCode(GenerationContext generationContext,
-				BeanRegistrationCode beanRegistrationCode,
-				Executable constructorOrFactoryMethod,
-				boolean allowDirectSupplierShortcut) {
+				BeanRegistrationCode beanRegistrationCode, boolean allowDirectSupplierShortcut) {
 
 			GeneratedMethod generatedMethod = beanRegistrationCode.getMethods()
 					.add("getScopedProxyInstance", method -> {

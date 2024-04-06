@@ -31,14 +31,14 @@ import org.springframework.util.CollectionUtils;
 /**
  * Abstract {@link ConnectionFactory} implementation that routes
  * {@link #create()} calls to one of various target
- * {@link ConnectionFactory factories} based on a lookup key.
+ * {@linkplain ConnectionFactory factories} based on a lookup key.
  * The latter is typically (but not necessarily) determined from some
  * subscriber context.
  *
- * <p> Allows to configure a {@link #setDefaultTargetConnectionFactory(Object)
- * default ConnectionFactory} as fallback.
+ * <p>Allows to configure a default target {@link #setDefaultTargetConnectionFactory(Object)
+ * ConnectionFactory} as a fallback.
  *
- * <p> Calls to {@link #getMetadata()} are routed to the
+ * <p>Calls to {@link #getMetadata()} are routed to the
  * {@link #setDefaultTargetConnectionFactory(Object) default ConnectionFactory}
  * if configured.
  *
@@ -125,8 +125,25 @@ public abstract class AbstractRoutingConnectionFactory implements ConnectionFact
 	}
 
 
+	/**
+	 * Delegates to {@link #initialize()}.
+	 */
 	@Override
 	public void afterPropertiesSet() {
+		initialize();
+	}
+
+	/**
+	 * Initialize the internal state of this {@code AbstractRoutingConnectionFactory}
+	 * by resolving the configured target ConnectionFactories.
+	 * @throws IllegalArgumentException if the target ConnectionFactories have not
+	 * been configured
+	 * @since 6.1
+	 * @see #setTargetConnectionFactories(Map)
+	 * @see #setDefaultTargetConnectionFactory(Object)
+	 */
+	@SuppressWarnings("NullAway")
+	public void initialize() {
 		Assert.notNull(this.targetConnectionFactories, "Property 'targetConnectionFactories' must not be null");
 
 		this.resolvedConnectionFactories = CollectionUtils.newHashMap(this.targetConnectionFactories.size());
@@ -204,6 +221,7 @@ public abstract class AbstractRoutingConnectionFactory implements ConnectionFact
 	 * per {@link #determineCurrentLookupKey()}
 	 * @see #determineCurrentLookupKey()
 	 */
+	@SuppressWarnings("NullAway")
 	protected Mono<ConnectionFactory> determineTargetConnectionFactory() {
 		Assert.state(this.resolvedConnectionFactories != null, "ConnectionFactory router not initialized");
 

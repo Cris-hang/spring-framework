@@ -38,6 +38,7 @@ import org.springframework.core.io.buffer.Netty5DataBufferFactory;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpLogging;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.support.Netty5HeadersAdapter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
@@ -49,6 +50,7 @@ import org.springframework.util.MultiValueMap;
  * <p>This class is based on {@link ReactorServerHttpRequest}.
  *
  * @author Violeta Georgieva
+ * @author Sebastien Deleuze
  * @since 6.0
  */
 class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
@@ -143,8 +145,8 @@ class ReactorNetty2ServerHttpRequest extends AbstractServerHttpRequest {
 	@Override
 	protected MultiValueMap<String, HttpCookie> initCookies() {
 		MultiValueMap<String, HttpCookie> cookies = new LinkedMultiValueMap<>();
-		for (CharSequence name : this.request.cookies().keySet()) {
-			for (HttpCookiePair cookie : this.request.cookies().get(name)) {
+		for (CharSequence name : this.request.allCookies().keySet()) {
+			for (HttpCookiePair cookie : this.request.allCookies().get(name)) {
 				CharSequence cookieValue = cookie.value();
 				HttpCookie httpCookie = new HttpCookie(name.toString(), cookieValue != null ? cookieValue.toString() : null);
 				cookies.add(name.toString(), httpCookie);

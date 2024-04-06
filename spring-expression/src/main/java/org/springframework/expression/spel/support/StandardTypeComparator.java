@@ -37,6 +37,8 @@ import org.springframework.util.NumberUtils;
  */
 public class StandardTypeComparator implements TypeComparator {
 
+	static final StandardTypeComparator INSTANCE = new StandardTypeComparator();
+
 	@Override
 	public boolean canCompare(@Nullable Object left, @Nullable Object right) {
 		if (left == null || right == null) {
@@ -53,7 +55,7 @@ public class StandardTypeComparator implements TypeComparator {
 	}
 
 	@Override
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	public int compare(@Nullable Object left, @Nullable Object right) throws SpelEvaluationException {
 		// If one is null, check if the other is
 		if (left == null) {

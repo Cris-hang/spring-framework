@@ -76,7 +76,7 @@ import org.springframework.util.MultiValueMap;
  *
  * Mono&lt;Void&gt; result = webClient.post()
  *     .uri("...")
- *     .body(multipartBody)
+ *     .bodyValue(multipartBody)
  *     .retrieve()
  *     .bodyToMono(Void.class)
  * </pre>
@@ -364,7 +364,7 @@ public final class MultipartBodyBuilder {
 	 * @param <P> the publisher
 	 */
 	static final class PublisherEntity<T, P extends Publisher<T>> extends HttpEntity<P>
-			implements ResolvableTypeProvider  {
+			implements ResolvableTypeProvider {
 
 		private final ResolvableType resolvableType;
 

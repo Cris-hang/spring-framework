@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +62,7 @@ class WiretapConnector implements ClientHttpConnector {
 
 
 	@Override
+	@SuppressWarnings("NullAway")
 	public Mono<ClientHttpResponse> connect(HttpMethod method, URI uri,
 			Function<? super ClientHttpRequest, Mono<Void>> requestCallback) {
 
@@ -73,7 +74,7 @@ class WiretapConnector implements ClientHttpConnector {
 					requestRef.set(wrapped);
 					return requestCallback.apply(wrapped);
 				})
-				.map(response ->  {
+				.map(response -> {
 					WiretapClientHttpRequest wrappedRequest = requestRef.get();
 					String header = WebTestClient.WEBTESTCLIENT_REQUEST_ID;
 					String requestId = wrappedRequest.getHeaders().getFirst(header);
@@ -126,7 +127,7 @@ class WiretapConnector implements ClientHttpConnector {
 	/**
 	 * Tap into a Publisher of data buffers to save the content.
 	 */
-	final static class WiretapRecorder {
+	static final class WiretapRecorder {
 
 		@Nullable
 		private final Flux<? extends DataBuffer> publisher;
@@ -181,6 +182,7 @@ class WiretapConnector implements ClientHttpConnector {
 			return this.publisherNested;
 		}
 
+		@SuppressWarnings("NullAway")
 		public Mono<byte[]> getContent() {
 			return Mono.defer(() -> {
 				if (this.content.scan(Scannable.Attr.TERMINATED) == Boolean.TRUE) {
